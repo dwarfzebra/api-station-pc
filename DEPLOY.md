@@ -1,6 +1,6 @@
 # API Station PC 部署指南
 
-本项目基于 **Nuxt 3** 和 **Prisma (MySQL/MariaDB)** 构建。以下是生产环境部署的详细步骤。
+本项目基于 **Nuxt 4** 和 **Prisma (MySQL/MariaDB)** 构建。以下是生产环境部署的详细步骤。
 
 ## 1. 环境依赖
 部署前请确保服务器已安装以下环境：

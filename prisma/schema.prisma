@@ -39,7 +39,6 @@ model ApiDefinition {
   updatedAt     DateTime @updatedAt
 
   apiGroup      ApiGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  workflowNodes WorkflowNode[]
 }
 
 // 3. 业务场景：工作流的容器
@@ -59,41 +58,44 @@ model Workflow {
   sceneId     Int
   name        String   @db.VarChar(255)
   description String?  @db.Text
-  nodes       WorkflowNode[]
-  edges       WorkflowEdge[]
+  steps       Json?    // 线性步骤集合: [ { id, apiId, mappingConfig } ]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   scene       WorkflowScene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  runs        WorkflowRun[]
 }
 
-// 核心执行逻辑节点
-model WorkflowNode {
+// 5. 链路运行记录
+model WorkflowRun {
+  id          Int      @id @default(autoincrement())
+  workflowId  Int
+  status      String   @db.VarChar(20) // RUNNING, SUCCESS, FAIL
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  duration    Int?     // 总耗时ms
+
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  apiLogs     ApiRunLog[]
+}
+
+// 6. API 运行日志 (单次调用详情)
+model ApiRunLog {
   id            Int      @id @default(autoincrement())
-  workflowId    Int
-  nodeType      String   @db.VarChar(50) // API, DELAY, CONDITION
-  apiId         Int?     
-  nodeName      String   @db.VarChar(255) 
-  uiConfig      Json?    
-  mappingConfig Json?    
+  workflowRunId Int?     // 可选：如果是在链路中运行的，则关联链路运行 ID
+  apiId         Int
+  apiName       String   @db.VarChar(255)
+  method        String   @db.VarChar(20)
+  url           String   @db.Text
+  reqHeaders    Json?
+  reqQuery      Json?
+  reqBody       Json?
+  resStatus     Int?
+  resHeaders    Json?
+  resBody       Json?
+  duration      Int?     // 耗时ms
+  error         String?  @db.Text
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 
-  workflow      Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  apiDefinition ApiDefinition? @relation(fields: [apiId], references: [id], onDelete: SetNull)
-
-  sourceEdges   WorkflowEdge[] @relation("SourceNode")
-  targetEdges   WorkflowEdge[] @relation("TargetNode")
-}
-
-model WorkflowEdge {
-  id           Int      @id @default(autoincrement())
-  workflowId   Int
-  sourceNodeId Int
-  targetNodeId Int
-  createdAt    DateTime @default(now())
-
-  workflow     Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  sourceNode   WorkflowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  targetNode   WorkflowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  workflowRun   WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
 }

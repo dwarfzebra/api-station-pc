@@ -10,6 +10,7 @@ const filterStatus = ref('ALL') // ALL, SUCCESS, FAIL
 const searchQuery = ref('')
 const selectedLog = ref<any>(null)
 const showDetailModal = ref(false)
+const isConfirmingClear = ref(false)
 
 const loadLogs = () => {
   const saved = localStorage.getItem('api_station_run_logs')
@@ -37,11 +38,11 @@ const viewDetail = (log: any) => {
   showDetailModal.value = true
 }
 
-const clearLogs = () => {
-  if (confirm('确认清空所有本地运行日志吗？')) {
-    localStorage.removeItem('api_station_run_logs')
-    logs.value = []
-  }
+const handleClearLogs = () => {
+  localStorage.removeItem('api_station_run_logs')
+  logs.value = []
+  isConfirmingClear.value = false
+  useToast().success('日志已清空')
 }
 
 const copyAsCurl = (snapshot: any) => {
@@ -70,6 +71,14 @@ const formatTime = (ts: string | number) => {
 
 <template>
   <div class="animate-in space-y-8 max-w-6xl mx-auto">
+    <BaseConfirm 
+      :show="isConfirmingClear" 
+      title="清空运行日志" 
+      message="确认清空所有本地运行日志吗？该操作将物理删除当前浏览器的所有记录，不可撤销。" 
+      type="danger"
+      @confirm="handleClearLogs"
+      @cancel="isConfirmingClear = false"
+    />
     <!-- ... header remains same ... -->
     <header class="flex justify-between items-end">
       <div class="space-y-1">
@@ -79,7 +88,7 @@ const formatTime = (ts: string | number) => {
         </h1>
         <p class="text-slate-500 font-medium">查看存储在本地浏览器的 API 与链路运行记录。</p>
       </div>
-      <button @click="clearLogs" class="button py-2 bg-red-50 text-red-600 border-red-100 hover:bg-red-100">
+      <button @click="isConfirmingClear = true" class="button py-2 bg-red-50 text-red-600 border-red-100 hover:bg-red-100">
         <Trash2 :size="16" />
         <span>清空日志</span>
       </button>

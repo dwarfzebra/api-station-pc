@@ -96,7 +96,7 @@ const toggleEnv = () => {
         </div>
       </header>
       
-      <div class="p-10 max-w-6xl w-full mx-auto flex-1 overflow-auto">
+      <div class="p-6 w-full flex-1 overflow-auto">
         <slot />
       </div>
     </main>

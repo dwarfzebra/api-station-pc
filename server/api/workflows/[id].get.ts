@@ -1,29 +1,30 @@
 export default defineEventHandler(async (event) => {
-  const workflowId = getRouterParam(event, 'id')
+  const workflowId = parseInt(getRouterParam(event, 'id') || '0')
+  if (!workflowId) throw createError({ statusCode: 400, message: 'Workflow ID is required' })
 
-  if (!workflowId) {
-    throw createError({ statusCode: 400, statusMessage: 'Workflow ID is required' })
-  }
+  const workflow = await prisma.workflow.findUnique({
+    where: { id: workflowId }
+  })
 
-  try {
-    const workflow = await prisma.workflow.findUnique({
-      where: { id: parseInt(workflowId) },
-      include: {
-        nodes: {
-          include: {
-            apiDefinition: true
-          }
-        },
-        edges: true
-      }
+  if (!workflow) throw createError({ statusCode: 404, message: 'Workflow not found' })
+
+  // 聚合查询 API 定义
+  const steps = (workflow.steps as any[]) || []
+  if (steps.length > 0) {
+    const apiIds = [...new Set(steps.map(s => s.apiId))].filter(id => !!id)
+    const apis = await prisma.apiDefinition.findMany({
+      where: { id: { in: apiIds } }
     })
 
-    if (!workflow) {
-      throw createError({ statusCode: 404, statusMessage: 'Workflow not found' })
-    }
-
-    return workflow
-  } catch (error: any) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+    // 将最新的定义合并回 steps
+    workflow.steps = steps.map(step => {
+      const detail = apis.find(a => a.id === step.apiId)
+      return {
+        ...step,
+        apiDefinition: detail || null
+      }
+    })
   }
+
+  return workflow
 })

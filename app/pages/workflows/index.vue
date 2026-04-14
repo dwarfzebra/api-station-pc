@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import { Plus, Workflow, Calendar, ArrowRight } from 'lucide-vue-next'
+import { Plus, Workflow, Calendar, ArrowRight, Layers } from 'lucide-vue-next'
 
 const { data: workflows, refresh } = await useFetch('/api/workflows')
-const { data: projects } = await useFetch('/api/projects')
+const { data: scenesData } = await useFetch('/api/workflow-scenes')
+const scenes = computed(() => scenesData.value || [])
 
 const showCreateModal = ref(false)
 const form = reactive({
-  projectId: null as number | null,
+  sceneId: null as number | null,
   name: '',
   description: ''
 })
 
 const createWorkflow = async () => {
-  if (!form.name || !form.projectId) return
+  if (!form.name || !form.sceneId) return
   try {
-    const res = await $fetch('/api/workflows', {
+    const res: any = await $fetch(`/api/workflow-scenes/${form.sceneId}/workflows`, {
       method: 'POST',
       body: { ...form }
     })
@@ -30,19 +31,15 @@ const createWorkflow = async () => {
   <div class="animate-in">
     <header class="page-header">
       <div>
-        <h1 class="page-title">链路编排</h1>
-        <p class="text-secondary">串联多个接口形成完整业务流，实现自动化测试与联调。</p>
+        <h1 class="page-title">链路总览</h1>
+        <p class="text-secondary">查看跨场景的所有自动化链路，快速进入编排与调试。</p>
       </div>
-      <button class="button button-primary" @click="showCreateModal = true">
-        <Plus :size="18" />
-        <span>新建链路</span>
-      </button>
     </header>
 
     <div class="workflow-grid">
       <div v-if="!workflows?.length" class="empty-state">
         <Workflow :size="48" class="empty-icon" />
-        <p>暂无链路定义，点击新建按钮开始编排</p>
+        <p>暂无链路定义</p>
       </div>
 
       <NuxtLink 
@@ -53,7 +50,7 @@ const createWorkflow = async () => {
       >
         <div class="wf-status">
           <div class="status-indicator"></div>
-          <span>{{ wf.project.name }}</span>
+          <span>{{ wf.scene?.name || '未归类场景' }}</span>
         </div>
         <h3>{{ wf.name }}</h3>
         <p class="text-secondary">{{ wf.description || '暂无链路描述' }}</p>
@@ -61,7 +58,7 @@ const createWorkflow = async () => {
         <div class="wf-footer">
           <div class="wf-stats">
             <Layers :size="14" />
-            <span>{{ wf._count.nodes }} 节点</span>
+            <span>{{ wf._count?.nodes || 0 }} 节点</span>
           </div>
           <div class="wf-date">
             <Calendar :size="14" />

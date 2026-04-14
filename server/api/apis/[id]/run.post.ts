@@ -78,7 +78,7 @@ export default defineEventHandler(async (event) => {
     duration, 
     responseData,
     requestSnapshot: { 
-      url: `${baseUrl}${finalPath}`, 
+      url: `${baseUrl}${finalPath}${Object.keys(query || {}).length ? '?' + new URLSearchParams(query as any).toString() : ''}`, 
       method: api.method, 
       headers, 
       query, 

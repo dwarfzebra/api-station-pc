@@ -51,10 +51,10 @@ const copyAsCurl = () => {
            </button>
         </div>
         <div class="bg-slate-900 rounded-2xl p-5 shadow-2xl border border-white/5 overflow-hidden ring-1 ring-inset ring-white/10">
-           <div class="flex items-center gap-3 mb-4">
-              <span class="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] font-black rounded uppercase border border-blue-500/30 font-mono tracking-tighter">{{ log.requestSnapshot?.method }}</span>
-              <code class="text-[10px] text-slate-300 font-mono truncate flex-1 opacity-90 underline underline-offset-4 decoration-slate-800">{{ log.requestSnapshot?.url }}</code>
-           </div>
+            <div class="flex items-start gap-3 mb-4">
+              <span class="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] font-black rounded uppercase border border-blue-500/30 font-mono tracking-tighter shrink-0 mt-0.5">{{ log.requestSnapshot?.method }}</span>
+              <code class="text-[10px] text-slate-300 font-mono break-all opacity-90 underline underline-offset-4 decoration-slate-800 leading-relaxed">{{ log.requestSnapshot?.url }}</code>
+            </div>
            
            <div class="grid grid-cols-1 gap-4">
               <div v-if="log.requestSnapshot?.headers && Object.keys(log.requestSnapshot.headers).length" class="space-y-2">

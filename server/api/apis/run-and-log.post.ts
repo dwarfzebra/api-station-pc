@@ -14,7 +14,20 @@ export default defineEventHandler(async (event) => {
   const startTime = Date.now()
   let resStatus, resHeaders, resBody, error
   
-  // 合并 Header：接口定义的默认 Header + 链路配置的覆盖 Header
+  // 1. 处理路径变量 (Path Variables)
+  let finalPath = api.path
+  const pathVars = finalPath.match(/\{[^\}]+\}/g) || []
+  const runtimeQuery = { ...(query || {}) }
+  
+  for (const placeholder of pathVars) {
+    const key = placeholder.replace(/\{|\}/g, '')
+    if (runtimeQuery[key] !== undefined) {
+      finalPath = finalPath.replace(placeholder, encodeURIComponent(String(runtimeQuery[key])))
+      delete runtimeQuery[key] // 从 Query 中移除，防止重复发送
+    }
+  }
+
+  // 2. 合并 Header
   const mergedHeaders = {
     ...((api.reqHeaders as any) || {}),
     ...(headers || {})
@@ -23,8 +36,8 @@ export default defineEventHandler(async (event) => {
   try {
     const axiosConfig = {
       method: api.method,
-      url: `${baseUrl}${api.path}`,
-      params: query,
+      url: `${baseUrl}${finalPath}`,
+      params: runtimeQuery,
       data: reqBody,
       headers: mergedHeaders,
       timeout: 15000
@@ -46,7 +59,7 @@ export default defineEventHandler(async (event) => {
     apiId,
     apiName: api.name,
     method: api.method,
-    url: `${baseUrl}${api.path}`,
+    url: `${baseUrl}${finalPath}${Object.keys(runtimeQuery || {}).length ? '?' + new URLSearchParams(runtimeQuery as any).toString() : ''}`,
     reqHeaders: headers,
     reqQuery: query,
     reqBody: reqBody,

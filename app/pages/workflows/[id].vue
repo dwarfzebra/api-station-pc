@@ -107,15 +107,27 @@ const runWorkflow = async () => {
        const mapping = step.mappingConfig || {}
        const runtimeValues = { query: {}, body: {}, headers: {} } as any
 
-       const processGroup = (group: any, target: any) => {
-          Object.entries(group || {}).forEach(([key, cfg]: [string, any]) => {
-             target[key] = cfg.isDynamic ? resolve(cfg.value) : cfg.value
+       const processGroup = (kind: string, target: any) => {
+          const apiMeta = step.apiDefinition?.['req' + kind.charAt(0).toUpperCase() + kind.slice(1)] || []
+          const mappingGroup = mapping[kind] || {}
+          
+          // Apply defaults first
+          apiMeta.forEach((p: any) => {
+             if (p.defaultValue) target[p.name] = p.defaultValue
+          })
+          
+          // Override with user config
+          Object.entries(mappingGroup).forEach(([key, cfg]: [string, any]) => {
+             const val = cfg.isDynamic ? resolve(cfg.value) : cfg.value
+             if (val !== undefined && val !== '') {
+                target[key] = val
+             }
           })
        }
 
-       processGroup(mapping.query, runtimeValues.query)
-       processGroup(mapping.body, runtimeValues.body)
-       processGroup(mapping.headers, runtimeValues.headers)
+       processGroup('query', runtimeValues.query)
+       processGroup('body', runtimeValues.body)
+       processGroup('headers', runtimeValues.headers)
 
        // 3. 读取本地持久化存储的全局配置 (Shared Headers)
        const savedSettings = JSON.parse(localStorage.getItem('api_station_global_settings') || '{"list":[]}')
@@ -390,7 +402,7 @@ const selectField = (f: string) => {
                    <div class="mb-10 flex items-end justify-between">
                       <div>
                          <h2 class="text-2xl font-black text-slate-900 mb-2 leading-none uppercase">{{ apiDetails?.name }}</h2>
-                         <code class="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded font-mono font-bold">{{ apiDetails?.method }} {{ apiDetails?.path }}</code>
+                         <code class="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-1 rounded font-mono font-bold break-all leading-relaxed">{{ apiDetails?.method }} {{ apiDetails?.path }}</code>
                       </div>
                       <button @click="onlyRequired = !onlyRequired" 
                               :class="['px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border', 
@@ -417,9 +429,8 @@ const selectField = (f: string) => {
                             <!-- Input + Variable toggle -->
                             <div class="flex items-center gap-2">
                                <input
-                                 :value="getParamConfig(kind, p.name).value"
+                                 :value="getParamConfig(kind, p.name).value || p.defaultValue || ''"
                                  @input="(e: any) => updateParamValue(kind, p.name, e.target.value, getParamConfig(kind, p.name).isDynamic)"
-                                 :placeholder="p.defaultValue ? `默认: ${p.defaultValue}` : p.name"
                                  :class="[
                                    'flex-1 h-10 px-4 border rounded-xl text-[10px] font-bold outline-none transition-all font-mono',
                                    getParamConfig(kind, p.name).isDynamic

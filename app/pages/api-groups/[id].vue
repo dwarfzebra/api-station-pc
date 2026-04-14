@@ -695,16 +695,6 @@ const createManualApi = async () => {
       </div>
     </BaseModal>
 
-    <BaseModal :show="showEditModal" title="编辑分组信息" @close="showEditModal = false">
-      <form class="space-y-6" @submit.prevent="updateGroup">
-        <label class="block space-y-2"><span class="text-xs font-black uppercase text-slate-400">分组名称</span><input v-model="editForm.name" class="w-full p-3 border border-slate-200 rounded-xl text-sm" /></label>
-        <div class="grid grid-cols-2 gap-4">
-          <label class="space-y-2"><span class="text-xs font-black text-emerald-500">测试域名</span><input v-model="editForm.testUrl" class="w-full p-3 border border-slate-200 rounded-xl text-sm font-mono" /></label>
-          <label class="space-y-2"><span class="text-xs font-black text-red-500">生产域名</span><input v-model="editForm.prodUrl" class="w-full p-3 border border-slate-200 rounded-xl text-sm font-mono" /></label>
-        </div>
-        <div class="flex justify-end gap-3 pt-4"><button type="button" class="button" @click="showEditModal = false">取消</button><button type="submit" class="button button-primary">保存修改</button></div>
-      </form>
-    </BaseModal>
 
     <BaseConfirm 
       :show="showDeleteConfirm" 

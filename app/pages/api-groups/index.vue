@@ -1,12 +1,37 @@
 <script setup lang="ts">
 import { 
-  Plus, Search, MoreHorizontal, Calendar, Layers, Globe
+  Plus, Search, Trash2, Calendar, Layers, Globe
 } from 'lucide-vue-next'
 
 const { data, refresh } = await useFetch('/api/api-groups')
 const groups = computed(() => data.value?.groups || [])
 
 const showCreateModal = ref(false)
+const showDeleteConfirm = ref(false)
+const targetDeleteId = ref<number | null>(null)
+const isDeleting = ref(false)
+
+const confirmDelete = (id: number) => {
+  targetDeleteId.value = id
+  showDeleteConfirm.value = true
+}
+
+const deleteGroup = async () => {
+  if (!targetDeleteId.value) return
+  isDeleting.value = true
+  try {
+    const toast = useToast()
+    await $fetch(`/api/api-groups/${targetDeleteId.value}`, { method: 'DELETE' })
+    await refresh()
+    toast.success('分组已成功删除')
+    showDeleteConfirm.value = false
+  } catch (err: any) {
+    useToast().error('删除失败')
+  } finally {
+    isDeleting.value = false
+    targetDeleteId.value = null
+  }
+}
 const isSubmitting = ref(false)
 const form = reactive({
   name: '',
@@ -43,6 +68,14 @@ const createGroup = async () => {
 
 <template>
   <div class="animate-in space-y-10">
+    <BaseConfirm 
+      :show="showDeleteConfirm" 
+      title="删除 API 分组" 
+      message="确认删除该分组吗？此操作将永久删除该分组下的所有接口定义及运行日志，且不可撤销。" 
+      type="danger"
+      @confirm="deleteGroup"
+      @cancel="showDeleteConfirm = false"
+    />
     <header class="flex justify-between items-end">
       <div>
         <h1 class="text-4xl font-heading font-bold mb-2">API 分组</h1>
@@ -105,9 +138,12 @@ const createGroup = async () => {
             <span>{{ new Date(g.updatedAt).toLocaleDateString() }}</span>
           </div>
 
-          <div class="flex justify-end">
-            <button class="p-2 text-slate-300 hover:text-slate-900 transition-colors" @click.prevent="">
-              <MoreHorizontal :size="18" />
+          <div class="flex justify-end pr-2">
+            <button 
+              class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" 
+              @click.prevent="confirmDelete(g.id)"
+            >
+              <Trash2 :size="18" />
             </button>
           </div>
         </NuxtLink>

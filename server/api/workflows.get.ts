@@ -1,14 +1,11 @@
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const projectId = query.projectId as string
+  const sceneId = query.sceneId as string
 
   try {
     const workflows = await prisma.workflow.findMany({
-      where: projectId ? { projectId: parseInt(projectId) } : {},
+      where: sceneId ? { sceneId: parseInt(sceneId) } : {},
       include: {
-        _count: {
-          select: { nodes: true }
-        },
         scene: {
           select: { name: true }
         }

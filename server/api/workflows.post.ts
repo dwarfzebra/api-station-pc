@@ -1,15 +1,15 @@
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { projectId, name, description } = body
+  const { sceneId, name, description } = body
 
-  if (!projectId || !name) {
-    throw createError({ statusCode: 400, statusMessage: 'Project ID and Name are required' })
+  if (!sceneId || !name) {
+    throw createError({ statusCode: 400, statusMessage: 'Scene ID and Name are required' })
   }
 
   try {
     const workflow = await prisma.workflow.create({
       data: {
-        projectId: parseInt(projectId),
+        sceneId: parseInt(sceneId),
         name,
         description
       }

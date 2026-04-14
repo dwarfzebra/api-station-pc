@@ -11,6 +11,7 @@ const searchQuery = ref('')
 const selectedLog = ref<any>(null)
 const showDetailModal = ref(false)
 const isConfirmingClear = ref(false)
+const selectedStepIdx = ref(0)
 
 const loadLogs = () => {
   const saved = localStorage.getItem('api_station_run_logs')
@@ -35,6 +36,7 @@ const filteredLogs = computed(() => {
 
 const viewDetail = (log: any) => {
   selectedLog.value = log
+  selectedStepIdx.value = 0
   showDetailModal.value = true
 }
 
@@ -186,7 +188,9 @@ const formatTime = (ts: string | number) => {
               </span>
             </td>
             <td class="px-6 py-5">
-              <span class="text-xs font-mono text-slate-500">{{ log.duration || 0 }}ms</span>
+              <span class="text-xs font-mono text-slate-500">
+                {{ log.type === 'WORKFLOW' ? (log.results?.reduce((acc: any, curr: any) => acc + (curr.duration || 0), 0)) : (log.duration || 0) }}ms
+              </span>
             </td>
             <td class="px-6 py-5 text-center">
               <button @click="viewDetail(log)" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
@@ -198,90 +202,77 @@ const formatTime = (ts: string | number) => {
       </table>
     </div>
 
-    <BaseModal :show="showDetailModal" title="执行详情透视" @close="showDetailModal = false" custom-class="max-w-4xl">
+    <BaseModal :show="showDetailModal" title="执行详情透视" @close="showDetailModal = false" custom-class="max-w-5xl">
       <div v-if="selectedLog" class="space-y-6">
-        <div class="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl shadow-sm">
+        <!-- Header Info -->
+        <div class="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-3xl">
           <div class="flex items-center gap-4">
-            <span :class="['text-[10px] font-black px-2 py-1 rounded truncate', selectedLog.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700']">
-              {{ selectedLog.status }}
-            </span>
-            <h3 class="font-bold text-slate-900">{{ selectedLog.apiName || selectedLog.workflowName }}</h3>
-          </div>
-          <p class="text-xs text-slate-400 font-mono">Timestamp: {{ formatTime(selectedLog.timestamp || selectedLog.id) }}</p>
-        </div>
-
-        <!-- If Single API -->
-        <div v-if="selectedLog.type === 'API'" class="space-y-6">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <h4 class="text-[10px] font-black uppercase text-slate-400">Request Snapshot</h4>
-              <button @click="copyAsCurl(selectedLog.requestSnapshot)" class="text-[9px] font-bold text-blue-500 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-lg">
-                <Terminal :size="10" /> 复制为 cURL
-              </button>
+            <div :class="['w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm', selectedLog.type === 'API' ? 'bg-blue-600 text-white' : 'bg-indigo-600 text-white']">
+               <Terminal v-if="selectedLog.type === 'API'" :size="20" />
+               <Workflow v-else :size="20" />
             </div>
-            <div class="bg-slate-900 p-4 rounded-xl text-xs font-mono text-slate-300 overflow-auto max-h-64 shadow-xl">
-               <p><span class="text-blue-400">{{ selectedLog.requestSnapshot?.method }}</span> {{ selectedLog.requestSnapshot?.url }}</p>
-               <div v-if="selectedLog.requestSnapshot?.headers" class="mt-4 border-t border-white/10 pt-4">
-                 <p class="text-[8px] text-slate-500 mb-2 uppercase">Headers</p>
-                 <pre class="text-[10px] text-slate-400 opacity-80">{{ JSON.stringify(selectedLog.requestSnapshot.headers, null, 2) }}</pre>
-               </div>
-               <div v-if="selectedLog.requestSnapshot?.body" class="mt-4 border-t border-white/10 pt-4">
-                 <p class="text-[8px] text-slate-500 mb-2 uppercase">Body</p>
-                 <pre class="text-[10px] text-slate-400 opacity-80">{{ JSON.stringify(selectedLog.requestSnapshot.body, null, 2) }}</pre>
-               </div>
+            <div>
+              <h3 class="font-black text-slate-900 uppercase tracking-tight">{{ selectedLog.apiName || selectedLog.workflowName }}</h3>
+              <div class="flex items-center gap-3 mt-1">
+                 <span :class="['text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest', selectedLog.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700']">{{ selectedLog.status }}</span>
+                 <span class="text-[9px] text-slate-400 font-mono flex items-center gap-1"><Clock :size="10" /> {{ formatTime(selectedLog.timestamp || selectedLog.id) }}</span>
+                 <span class="text-[9px] text-slate-400 font-mono">Total: {{ selectedLog.type === 'WORKFLOW' ? (selectedLog.results?.reduce((acc: any, curr: any) => acc + (curr.duration || 0), 0)) : (selectedLog.duration || 0) }}ms</span>
+              </div>
             </div>
-          </div>
-          <div class="space-y-2">
-            <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Response Data</h4>
-            <pre class="bg-emerald-950/5 p-4 rounded-xl text-[10px] font-mono text-emerald-700 border border-emerald-100 overflow-auto max-h-80 shadow-inner">{{ JSON.stringify(selectedLog.responseData || selectedLog.response, null, 2) }}</pre>
           </div>
         </div>
 
-        <!-- If Workflow -->
-        <div v-else class="space-y-4">
-           <h4 class="text-[10px] font-black uppercase text-slate-400">Workflow Execution Flow ({{ selectedLog.results?.length }} steps)</h4>
-           <div class="space-y-3">
-             <div v-for="(res, idx) in selectedLog.results" :key="idx" class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-               <!-- Step Header -->
-               <div class="p-4 bg-slate-50 flex justify-between items-center border-b border-slate-100">
-                 <div class="flex items-center gap-3">
-                    <span class="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400">#{{ idx + 1 }}</span>
-                    <div class="flex flex-col">
-                      <span class="text-xs font-bold text-slate-900">{{ res.name }}</span>
-                      <span class="text-[10px] font-mono text-slate-400">{{ res.requestSnapshot?.method }} · {{ res.duration }}ms</span>
+        <!-- content -->
+        <div v-if="selectedLog.type === 'API'">
+           <ApiLogDetail :log="{
+             requestSnapshot: selectedLog.requestSnapshot,
+             response: selectedLog.responseData || selectedLog.response,
+             status: selectedLog.status,
+             duration: selectedLog.duration
+           }" />
+        </div>
+        
+        <div v-else class="flex gap-8 h-[600px] overflow-hidden">
+           <!-- Steps Sidebar -->
+           <div class="w-64 flex flex-col gap-4 shrink-0 border-r border-slate-100 pr-6">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Execution Steps</p>
+              <div class="flex-1 overflow-y-auto space-y-2 pr-2">
+                 <div 
+                   v-for="(res, idx) in selectedLog.results" 
+                   :key="idx" 
+                   @click="selectedStepIdx = idx"
+                   :class="['p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center group', 
+                            selectedStepIdx === idx ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-50 hover:bg-slate-50 opacity-60']"
+                 >
+                    <div class="flex items-center gap-3">
+                       <span :class="['w-6 h-6 rounded-lg text-[10px] font-black flex items-center justify-center transition-colors', selectedStepIdx === idx ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400']">{{ idx + 1 }}</span>
+                       <div class="flex flex-col min-w-0">
+                          <span :class="['text-[11px] font-bold truncate w-32', selectedStepIdx === idx ? 'text-indigo-900' : 'text-slate-700']">{{ res.name }}</span>
+                          <span class="text-[9px] text-slate-400 font-mono">{{ res.duration }}ms</span>
+                       </div>
                     </div>
+                    <CheckCircle2 v-if="res.status === 'SUCCESS'" :size="14" class="text-emerald-500" />
+                    <XCircle v-else :size="14" class="text-red-500" />
                  </div>
-                 <div class="flex items-center gap-3">
-                   <button @click="copyAsCurl(res.requestSnapshot)" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="复制为 cURL">
-                     <Terminal :size="14" />
-                   </button>
-                   <span :class="['text-[10px] font-black px-2 py-0.5 rounded uppercase', res.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600']">{{ res.status }}</span>
+              </div>
+           </div>
+           <!-- Step Detail -->
+           <div class="flex-1 overflow-y-auto pr-2">
+              <div v-if="selectedStepIdx !== null && selectedLog.results[selectedStepIdx]" class="space-y-6">
+                 <div class="flex items-center justify-between px-1">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Step Snapshot: {{ selectedLog.results[selectedStepIdx].name }}</p>
                  </div>
-               </div>
-               
-               <!-- Step Details -->
-               <div class="p-4 bg-white space-y-4">
-                 <div v-if="res.requestSnapshot" class="space-y-1.5 overflow-hidden">
-                   <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Request Snapshot</p>
-                   <div class="bg-slate-900 p-3 rounded-xl text-[10px] font-mono text-slate-300 overflow-auto max-h-48 shadow-lg">
-                     <p><span class="text-blue-400">{{ res.requestSnapshot.method }}</span> {{ res.requestSnapshot.url }}</p>
-                     <div v-if="res.requestSnapshot.headers" class="mt-2 text-slate-500 border-t border-white/5 pt-2">
-                       <p class="text-[8px] text-white/20 mb-1">HEADERS</p>
-                       <pre class="bg-black/20 p-2 rounded">{{ JSON.stringify(res.requestSnapshot.headers, null, 2) }}</pre>
-                     </div>
-                     <div v-if="res.requestSnapshot.body" class="mt-2 text-slate-500 border-t border-white/5 pt-2">
-                       <p class="text-[8px] text-white/20 mb-1">PAYLOAD</p>
-                       <pre class="bg-black/20 p-2 rounded">{{ JSON.stringify(res.requestSnapshot.body, null, 2) }}</pre>
-                     </div>
-                   </div>
-                 </div>
-
-                 <div class="space-y-1.5 overflow-hidden">
-                   <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Response Data</p>
-                   <pre class="bg-emerald-950/5 p-3 rounded-xl border border-emerald-100 text-[10px] font-mono text-emerald-700 overflow-auto max-h-48 shadow-inner">{{ JSON.stringify(res.response, null, 2) }}</pre>
-                 </div>
-               </div>
-             </div>
+                 <ApiLogDetail :log="{
+                   requestSnapshot: selectedLog.results[selectedStepIdx].requestSnapshot,
+                   response: selectedLog.results[selectedStepIdx].response,
+                   status: selectedLog.results[selectedStepIdx].status,
+                   duration: selectedLog.results[selectedStepIdx].duration
+                 }" />
+              </div>
+              <div v-else class="h-full flex flex-col items-center justify-center text-center opacity-20 grayscale grayscale-100">
+                 <Terminal :size="48" class="mb-4" />
+                 <p class="text-[10px] font-black uppercase tracking-widest">Select a step to explore logs</p>
+              </div>
            </div>
         </div>
       </div>

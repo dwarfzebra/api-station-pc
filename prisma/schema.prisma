@@ -63,39 +63,4 @@ model Workflow {
   updatedAt   DateTime @updatedAt
 
   scene       WorkflowScene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
-  runs        WorkflowRun[]
-}
-
-// 5. 链路运行记录
-model WorkflowRun {
-  id          Int      @id @default(autoincrement())
-  workflowId  Int
-  status      String   @db.VarChar(20) // RUNNING, SUCCESS, FAIL
-  startTime   DateTime @default(now())
-  endTime     DateTime?
-  duration    Int?     // 总耗时ms
-
-  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  apiLogs     ApiRunLog[]
-}
-
-// 6. API 运行日志 (单次调用详情)
-model ApiRunLog {
-  id            Int      @id @default(autoincrement())
-  workflowRunId Int?     // 可选：如果是在链路中运行的，则关联链路运行 ID
-  apiId         Int
-  apiName       String   @db.VarChar(255)
-  method        String   @db.VarChar(20)
-  url           String   @db.Text
-  reqHeaders    Json?
-  reqQuery      Json?
-  reqBody       Json?
-  resStatus     Int?
-  resHeaders    Json?
-  resBody       Json?
-  duration      Int?     // 耗时ms
-  error         String?  @db.Text
-  createdAt     DateTime @default(now())
-
-  workflowRun   WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
 }

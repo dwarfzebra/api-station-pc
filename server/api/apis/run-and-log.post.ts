@@ -41,24 +41,21 @@ export default defineEventHandler(async (event) => {
 
   const duration = Date.now() - startTime
 
-  // 写入持久化日志
-  const log = await prisma.apiRunLog.create({
-    data: {
-      workflowRunId: workflowRunId || null,
-      apiId,
-      apiName: api.name,
-      method: api.method,
-      url: `${baseUrl}${api.path}`,
-      reqHeaders: headers,
-      reqQuery: query,
-      reqBody: reqBody,
-      resStatus,
-      resHeaders: resHeaders as any,
-      resBody: resBody as any,
-      duration,
-      error
-    }
-  })
+  const log = {
+    workflowRunId: workflowRunId || null,
+    apiId,
+    apiName: api.name,
+    method: api.method,
+    url: `${baseUrl}${api.path}`,
+    reqHeaders: headers,
+    reqQuery: query,
+    reqBody: reqBody,
+    resStatus,
+    resHeaders: resHeaders as any,
+    resBody: resBody as any,
+    duration,
+    error
+  }
 
   return { log }
 })

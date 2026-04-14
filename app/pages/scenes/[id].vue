@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { 
-  ArrowLeft, Plus, Workflow, Play, Clock, Edit2, History
+  ArrowLeft, Plus, Workflow, Play, Clock, Edit2, History, Trash2
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -19,6 +19,31 @@ const form = reactive({ name: '', description: '' })
 const editForm = reactive({ id: 0, name: '', description: '' })
 const isSubmitting = ref(false)
 const isUpdating = ref(false)
+
+const showDeleteConfirm = ref(false)
+const targetDeleteId = ref<number | null>(null)
+const isDeleting = ref(false)
+
+const confirmDelete = (id: number) => {
+  targetDeleteId.value = id
+  showDeleteConfirm.value = true
+}
+
+const deleteWorkflow = async () => {
+  if (!targetDeleteId.value) return
+  isDeleting.value = true
+  try {
+    await $fetch(`/api/workflows/${targetDeleteId.value}`, { method: 'DELETE' })
+    await refresh()
+    useToast().success('链路已成功删除')
+    showDeleteConfirm.value = false
+  } catch (err) {
+    useToast().error('删除失败')
+  } finally {
+    isDeleting.value = false
+    targetDeleteId.value = null
+  }
+}
 
 const createWorkflow = async () => {
   if (!form.name) return
@@ -60,6 +85,14 @@ const updateWorkflow = async () => {
 
 <template>
   <div class="animate-in space-y-8">
+    <BaseConfirm 
+      :show="showDeleteConfirm" 
+      title="删除编排链路" 
+      message="确认删除该链路吗？此操作将永久抹除所有步骤配置及本地调试日志，不可恢复。" 
+      type="danger"
+      @confirm="deleteWorkflow"
+      @cancel="showDeleteConfirm = false"
+    />
     <header class="space-y-4">
       <NuxtLink to="/scenes" class="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors">
         <ArrowLeft :size="16" />
@@ -96,13 +129,22 @@ const updateWorkflow = async () => {
             </div>
             <h3 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{{ wf.name }}</h3>
           </div>
-          <button 
-            @click.stop="openEditModal(wf)"
-            class="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-            title="编辑名称描述"
-          >
-            <Edit2 :size="14" />
-          </button>
+          <div class="flex items-center gap-1">
+            <button 
+              @click.stop="openEditModal(wf)"
+              class="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+              title="编辑名称描述"
+            >
+              <Edit2 :size="14" />
+            </button>
+            <button 
+              @click.stop="confirmDelete(wf.id)"
+              class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              title="删除链路"
+            >
+              <Trash2 :size="14" />
+            </button>
+          </div>
         </div>
         
         <p class="text-xs text-slate-400 line-clamp-2 h-8 leading-relaxed mb-6">{{ wf.description || '点击开始可视化编排链路流程' }}</p>

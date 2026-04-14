@@ -14,6 +14,31 @@ const isUpdating = ref(false)
 const form = reactive({ name: '', description: '' })
 const editForm = reactive({ id: 0, name: '', description: '' })
 
+const showDeleteConfirm = ref(false)
+const targetDeleteId = ref<number | null>(null)
+const isDeleting = ref(false)
+
+const confirmDelete = (id: number) => {
+  targetDeleteId.value = id
+  showDeleteConfirm.value = true
+}
+
+const deleteScene = async () => {
+  if (!targetDeleteId.value) return
+  isDeleting.value = true
+  try {
+    await $fetch(`/api/workflow-scenes/${targetDeleteId.value}`, { method: 'DELETE' })
+    await refresh()
+    useToast().success('场景已成功移除')
+    showDeleteConfirm.value = false
+  } catch (err) {
+    useToast().error('删除失败')
+  } finally {
+    isDeleting.value = false
+    targetDeleteId.value = null
+  }
+}
+
 const createScene = async () => {
   if (!form.name) return
   isSubmitting.value = true
@@ -54,6 +79,14 @@ const updateScene = async () => {
 
 <template>
   <div class="animate-in space-y-10">
+    <BaseConfirm 
+      :show="showDeleteConfirm" 
+      title="移除自动化场景" 
+      message="确认删除该业务场景吗？此操作将永久移除该场景下的所有测试链路及运行历史，且无法找回。" 
+      type="danger"
+      @confirm="deleteScene"
+      @cancel="showDeleteConfirm = false"
+    />
     <header class="flex justify-between items-end">
       <div>
         <h1 class="text-4xl font-heading font-bold mb-2">自动化场景</h1>
@@ -80,15 +113,24 @@ const updateScene = async () => {
           <div class="w-14 h-14 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
             <Workflow :size="28" />
           </div>
-          <div class="flex flex-col items-end gap-2">
-            <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">{{ s._count?.workflows || 0 }} Workflows</span>
-            <button 
-              @click.stop="openEditModal(s)"
-              class="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-              title="编辑场景"
-            >
-              <Edit3 :size="16" />
-            </button>
+          <div class="flex flex-col items-end gap-1 px-1">
+             <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">{{ s._count?.workflows || 0 }} Workflows</span>
+             <div class="flex items-center">
+                <button 
+                  @click.stop="openEditModal(s)"
+                  class="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                  title="编辑场景"
+                >
+                  <Edit3 :size="16" />
+                </button>
+                <button 
+                  @click.stop="confirmDelete(s.id)"
+                  class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  title="删除场景"
+                >
+                  <Trash2 :size="16" />
+                </button>
+             </div>
           </div>
         </div>
         

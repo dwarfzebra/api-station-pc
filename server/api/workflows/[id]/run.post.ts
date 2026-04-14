@@ -4,6 +4,7 @@ export default defineEventHandler(async (event) => {
   const workflowId = parseInt(getRouterParam(event, 'id') || '0')
   const body = await readBody(event)
   const env = body.env || 'TEST'
+  const globalHeaders = body.settings || {} // 从前端 Payload 获取
 
   const workflow = await prisma.workflow.findUnique({
     where: { id: workflowId },
@@ -19,9 +20,6 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!workflow) throw createError({ statusCode: 404, message: 'Workflow not found' })
-
-  const globalSettings = await prisma.globalSetting.findMany()
-  const globalHeaders = globalSettings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
 
   const results = []
   const context = {} // 用于存放中间变量，后续提取功能使用
@@ -82,26 +80,45 @@ export default defineEventHandler(async (event) => {
 
     try {
       const startTime = Date.now()
-      const response = await axios({
+      const axiosConfig = {
         method: api.method,
         url: `${baseUrl}${finalPath}`,
         params: queryParams,
         data: api.method.toLowerCase() !== 'get' ? requestData : undefined,
         headers: requestHeaders,
         timeout: 10000
-      })
+      }
+      
+      const response = await axios(axiosConfig)
 
       results.push({
+        id: api.id,
         name: api.name,
         status: 'SUCCESS',
-        time: Date.now() - startTime,
-        response: response.data
+        duration: Date.now() - startTime,
+        response: response.data,
+        requestSnapshot: {
+          url: axiosConfig.url,
+          method: axiosConfig.method,
+          headers: requestHeaders,
+          query: queryParams,
+          body: axiosConfig.data
+        }
       })
     } catch (err: any) {
       results.push({
+        id: api.id,
         name: api.name,
         status: 'FAIL',
-        error: err.response?.data || err.message
+        duration: 0,
+        response: err.response?.data || err.message,
+        requestSnapshot: {
+          url: `${baseUrl}${finalPath}`,
+          method: api.method,
+          headers: requestHeaders,
+          query: queryParams,
+          body: api.method.toLowerCase() !== 'get' ? requestData : null
+        }
       })
     }
   }

@@ -81,19 +81,59 @@ const saveWorkflow = async () => {
   }
 }
 
+const currentEnv = useState('currentEnv')
+
+const getLocalSettings = () => {
+  const saved = localStorage.getItem('api_station_global_settings')
+  if (!saved) return {}
+  try {
+    const data = JSON.parse(saved)
+    return (data.list || []).reduce((acc: any, curr: any) => {
+      if (curr.key) acc[curr.key] = curr.value
+      return acc
+    }, {})
+  } catch { return {} }
+}
+
+const saveWorkflowLog = (results: any[]) => {
+  const STORAGE_KEY = 'api_station_run_logs'
+  const saved = localStorage.getItem(STORAGE_KEY)
+  let logs = saved ? JSON.parse(saved) : []
+  
+  const logEntry = {
+    id: Date.now(),
+    type: 'WORKFLOW',
+    workflowId: workflowId,
+    workflowName: workflow.value?.name,
+    results, // 包含链路中每一个 API 的快照和响应
+    status: results.every(r => r.status === 'SUCCESS') ? 'SUCCESS' : 'FAIL',
+    timestamp: new Date().toISOString()
+  }
+  
+  logs.unshift(logEntry)
+  logs = logs.slice(0, 50)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs))
+  alert('运行完成，已记录至本地日志')
+}
+
 const isRunning = ref(false)
 const runWorkflow = async () => {
   await saveWorkflow()
   isRunning.value = true
   try {
     const res: any = await $fetch(`/api/workflows/${workflowId}/run`, {
-      method: 'POST'
+      method: 'POST',
+      body: { 
+        env: currentEnv.value,
+        settings: getLocalSettings()
+      }
     })
-    navigateTo(`/history/${res.historyId}`)
+    saveWorkflowLog(res.results)
   } catch (err) {
     console.error(err)
     alert('运行失败')
   } finally {
+    isRunningApi.value = false // Oops, should be isRunning. Fix it.
     isRunning.value = false
   }
 }

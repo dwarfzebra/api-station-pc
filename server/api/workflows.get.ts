@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
         _count: {
           select: { nodes: true }
         },
-        project: {
+        scene: {
           select: { name: true }
         }
       },

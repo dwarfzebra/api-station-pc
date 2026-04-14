@@ -4,6 +4,7 @@ import { X } from 'lucide-vue-next'
 defineProps<{
   show: boolean
   title: string
+  customClass?: string
 }>()
 
 defineEmits(['close'])
@@ -13,7 +14,7 @@ defineEmits(['close'])
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="show" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[1000]" @click.self="$emit('close')">
-        <div class="bg-white w-full max-w-[500px] rounded-[24px] shadow-2xl overflow-hidden animate-in">
+        <div :class="['bg-white w-full rounded-[24px] shadow-2xl overflow-hidden animate-in mx-4', customClass || 'max-w-[500px]']">
           <header class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
             <h3 class="text-xl font-heading font-bold text-slate-900">{{ title }}</h3>
             <button class="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all" @click="$emit('close')">

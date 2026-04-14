@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// 1. API 分组：基于域名
+model ApiGroup {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  testUrl     String?  @db.VarChar(255) // 测试域名
+  prodUrl     String?  @db.VarChar(255) // 生产域名
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  apis        ApiDefinition[]
+}
+
+// 2. API 定义：属于某个分组
+model ApiDefinition {
+  id            Int      @id @default(autoincrement())
+  groupId       Int
+  name          String   @db.VarChar(255)
+  method        String   @db.VarChar(20) // GET, POST, PUT, DELETE...
+  path          String   @db.VarChar(255)
+  reqHeaders    Json?    // 接口私有的 Headers
+  reqQuery      Json?    
+  reqBodyType   String?  @db.VarChar(50) 
+  reqBody       Json?    // 请求体结构，改为 Json 以支持表格编辑
+  resBody       Json?    // 响应体结构与注释
+  preScript     String?  @db.Text 
+  postScript    String?  @db.Text 
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  apiGroup      ApiGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  workflowNodes WorkflowNode[]
+}
+
+// 3. 业务场景：工作流的容器
+model WorkflowScene {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workflows    Workflow[]
+}
+
+// 4. 工作流：属于某个场景
+model Workflow {
+  id          Int      @id @default(autoincrement())
+  sceneId     Int
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  nodes       WorkflowNode[]
+  edges       WorkflowEdge[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  scene       WorkflowScene  @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  runHistory  RunHistory[]
+}
+
+// 核心执行逻辑节点
+model WorkflowNode {
+  id            Int      @id @default(autoincrement())
+  workflowId    Int
+  nodeType      String   @db.VarChar(50) // API, DELAY, CONDITION
+  apiId         Int?     
+  nodeName      String   @db.VarChar(255) 
+  uiConfig      Json?    
+  mappingConfig Json?    
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workflow      Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  apiDefinition ApiDefinition? @relation(fields: [apiId], references: [id], onDelete: SetNull)
+
+  sourceEdges   WorkflowEdge[] @relation("SourceNode")
+  targetEdges   WorkflowEdge[] @relation("TargetNode")
+  logDetails    RunNodeDetail[]
+}
+
+model WorkflowEdge {
+  id           Int      @id @default(autoincrement())
+  workflowId   Int
+  sourceNodeId Int
+  targetNodeId Int
+  createdAt    DateTime @default(now())
+
+  workflow     Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  sourceNode   WorkflowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   WorkflowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+}
+
+// 每次运行的记录
+model RunHistory {
+  id               String   @id @default(uuid())
+  workflowId       Int
+  env              String   @default("TEST") // TEST, PROD
+  status           String   @db.VarChar(50) 
+  totalLatencyMs   Int?
+  createdAt        DateTime @default(now())
+
+  workflow         Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  nodeDetails      RunNodeDetail[]
+}
+
+model RunNodeDetail {
+  id                  Int      @id @default(autoincrement())
+  historyId           String
+  nodeId              Int
+  status              String   @db.VarChar(50) 
+  snapshotReqUrl      String?  @db.Text        
+  snapshotReqHeaders  Json?                    
+  snapshotReqBody     String?  @db.LongText    
+  snapshotResStatus   Int?                     
+  snapshotResHeaders  Json?                    
+  snapshotResBody     String?  @db.LongText    
+  errorMsg            String?  @db.Text        
+  latencyMs           Int?                     
+  createdAt           DateTime @default(now())
+
+  runHistory          RunHistory   @relation(fields: [historyId], references: [id], onDelete: Cascade)
+  workflowNode        WorkflowNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+}
+
+// 全局配置：存储全局 Headers, Token, 环境状态等
+model GlobalSetting {
+  id          Int      @id @default(autoincrement())
+  configKey   String   @unique @db.VarChar(100)
+  configValue Json?    
+  updatedAt   DateTime @updatedAt
+}

@@ -74,8 +74,23 @@ const updateParamValue = (type: string, name: string, value: any, isDynamic: boo
   }
 }
 
+// 参数类型修正：将字符串值按声明类型转换为正确的 JS 类型
+// 核心场景：array 类型参数不能以空字符串或字符串形式发给后端
+const coerceParamValue = (val: any, type?: string): any => {
+  if (type?.toLowerCase() === 'array') {
+    if (Array.isArray(val)) return val
+    if (typeof val === 'string') {
+      if (val.trim() === '' || val.trim() === '[]') return []
+      try { return JSON.parse(val) } catch { return [] }
+    }
+    return []
+  }
+  return val
+}
+
 // Global Execution
 const runWorkflow = async () => {
+
   if (isRunning.value) return
   isRunning.value = true
   executingIdx.value = 0
@@ -113,17 +128,22 @@ const runWorkflow = async () => {
           
           // Apply defaults first
           apiMeta.forEach((p: any) => {
-             if (p.defaultValue) target[p.name] = p.defaultValue
+             if (p.defaultValue !== undefined && p.defaultValue !== '') {
+               target[p.name] = coerceParamValue(p.defaultValue, p.type)
+             }
           })
           
           // Override with user config
           Object.entries(mappingGroup).forEach(([key, cfg]: [string, any]) => {
              const val = cfg.isDynamic ? resolve(cfg.value) : cfg.value
              if (val !== undefined && val !== '') {
-                target[key] = val
+               // 找到该参数的类型定义
+               const paramMeta = apiMeta.find((p: any) => p.name === key)
+               target[key] = coerceParamValue(val, paramMeta?.type)
              }
           })
        }
+
 
        processGroup('query', runtimeValues.query)
        processGroup('body', runtimeValues.body)

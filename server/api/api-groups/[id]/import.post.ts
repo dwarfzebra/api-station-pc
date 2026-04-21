@@ -75,13 +75,26 @@ export default defineEventHandler(async (event) => {
             name: fullName,
             type: mapType(detail.type || (detail.properties ? 'object' : 'string')),
             required: schema.required?.includes(key) || false,
-            defaultValue: detail.default !== undefined ? String(detail.default) : (detail.example !== undefined ? String(detail.example) : ''),
+            defaultValue: (() => {
+              if (detail.type === 'array') {
+                // array 类型必须默认为 JSON 数组字符串，否则后端会收到空字符串导致解析失败
+                if (detail.default !== undefined && Array.isArray(detail.default)) return JSON.stringify(detail.default)
+                if (detail.example !== undefined && Array.isArray(detail.example)) return JSON.stringify(detail.example)
+                return '[]'
+              }
+              if (detail.default !== undefined) return String(detail.default)
+              if (detail.example !== undefined) return String(detail.example)
+              return ''
+            })(),
             description: detail.description || detail.title || ''
           })
           
           if (detail.properties) {
+            // 对象类型：递归展开其属性
             flattenSchema(detail, fullName, list, depth + 1)
-          } else if (detail.type === 'array' && (detail.items?.properties || detail.items?.type)) {
+          } else if (detail.type === 'array' && detail.items?.properties) {
+            // 数组类型 + 元素是对象：展开对象字段，如 items[].field
+            // 注意：如果元素是基础类型 (string/integer等)，不递归，避免重复生成 fieldName[] 条目
             flattenSchema(detail.items, `${fullName}[]`, list, depth + 1)
           }
         }

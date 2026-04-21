@@ -635,37 +635,63 @@ const createManualApi = async () => {
           </div>
         </div>
 
-        <!-- Right: Result -->
+        <!-- Right: Result/History Panel -->
         <div class="bg-slate-900 rounded-3xl p-6 flex flex-col overflow-hidden shadow-2xl">
-          <div class="flex items-center justify-between mb-4">
-            <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest">Execute Result</h4>
-            <div v-if="runResult" class="flex items-center gap-3">
-              <span :class="['text-[10px] font-black px-2 py-0.5 rounded', runResult.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400']">
-                {{ runResult.status }}
-              </span>
-              <span class="text-[10px] font-mono text-slate-500">{{ runResult.duration }}ms</span>
+          <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-4">
+             <div class="flex gap-4">
+                <button @click="rightTab = 'current'" :class="['text-[10px] font-black uppercase tracking-widest transition-all', rightTab === 'current' ? 'text-white' : 'text-slate-600 hover:text-slate-400']">Result</button>
+                <button @click="rightTab = 'history'" :class="['text-[10px] font-black uppercase tracking-widest transition-all', rightTab === 'history' ? 'text-white' : 'text-slate-600 hover:text-slate-400']">History</button>
+             </div>
+             <div v-if="rightTab === 'current' && runResult" class="flex items-center gap-3">
+                <span :class="['text-[10px] font-black px-2 py-0.5 rounded', runResult.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400']">
+                  {{ runResult.status }}
+                </span>
+                <span class="text-[10px] font-mono text-slate-500">{{ runResult.duration || 0 }}ms</span>
+             </div>
+          </div>
+
+          <!-- CURRENT VIEW -->
+          <div v-if="rightTab === 'current'" class="flex-1 flex flex-col overflow-hidden">
+            <div v-if="!runResult && !isRunningApi" class="flex-1 flex flex-col items-center justify-center text-slate-600 gap-4 opacity-40">
+              <Play :size="48" />
+              <p class="text-sm font-bold text-center">Ready to test? Click Run Test below</p>
+            </div>
+
+            <div v-else-if="isRunningApi" class="flex-1 flex flex-col items-center justify-center text-blue-400 gap-4">
+              <div class="w-8 h-8 border-4 border-blue-400/20 border-t-blue-400 rounded-full animate-spin"></div>
+              <p class="text-xs font-bold animate-pulse">Requesting Core...</p>
+            </div>
+
+            <div v-else class="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div class="space-y-2">
+                 <p class="text-[10px] font-black text-slate-500 uppercase">Response Body</p>
+                 <pre class="bg-black/20 p-4 rounded-xl text-xs font-mono text-emerald-400 overflow-x-auto select-all">{{ JSON.stringify(runResult.responseData || runResult.response || {}, null, 2) }}</pre>
+              </div>
+              <div class="space-y-2">
+                 <p class="text-[10px] font-black text-slate-500 uppercase">Request Snapshot</p>
+                 <div class="bg-black/20 p-4 rounded-xl text-[10px] font-mono text-slate-400 space-y-2 break-all">
+                   <p><span class="text-blue-400">{{ runResult.requestSnapshot?.method }}</span> {{ runResult.requestSnapshot?.url }}</p>
+                   <div v-if="runResult.requestSnapshot?.body" class="pt-2 border-t border-slate-800">
+                     <p class="text-slate-600 text-[8px] uppercase mb-1">DATA</p>
+                     <pre class="text-[9px]">{{ JSON.stringify(runResult.requestSnapshot.body, null, 2) }}</pre>
+                   </div>
+                 </div>
+              </div>
             </div>
           </div>
 
-          <div v-if="!runResult && !isRunningApi" class="flex-1 flex flex-col items-center justify-center text-slate-600 gap-4 opacity-40">
-            <Play :size="48" />
-            <p class="text-sm font-bold">准备就绪，点击下方按钮开始任务</p>
-          </div>
-
-          <div v-else-if="isRunningApi" class="flex-1 flex flex-col items-center justify-center text-blue-400 gap-4">
-            <div class="w-8 h-8 border-4 border-blue-400/20 border-t-blue-400 rounded-full animate-spin"></div>
-            <p class="text-xs font-bold animate-pulse">正在发送请求...</p>
-          </div>
-
-          <div v-else class="flex-1 overflow-y-auto space-y-4">
-            <div class="space-y-2">
-               <p class="text-[10px] font-black text-slate-500 uppercase">Response Body</p>
-               <pre class="bg-black/20 p-4 rounded-xl text-xs font-mono text-emerald-400 overflow-x-auto">{{ JSON.stringify(runResult.responseData, null, 2) }}</pre>
+          <!-- HISTORY VIEW -->
+          <div v-else class="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div v-if="debugLogs.length === 0" class="h-full flex flex-col items-center justify-center text-slate-700 italic text-[10px]">
+               No local logs found.
             </div>
-            <div class="space-y-2">
-               <p class="text-[10px] font-black text-slate-500 uppercase">Request Snapshot</p>
-               <div class="bg-black/20 p-4 rounded-xl text-[10px] font-mono text-slate-400 space-y-1">
-                 <p><span class="text-blue-400">{{ runResult.requestSnapshot.method }}</span> {{ runResult.requestSnapshot.url }}</p>
+            <div v-for="log in debugLogs" :key="log.id" @click="runResult = log; rightTab = 'current'" class="p-3 bg-black/20 border border-slate-800 rounded-xl cursor-pointer hover:bg-black/40 transition-colors group">
+               <div class="flex justify-between items-center mb-1">
+                  <span :class="['text-[8px] font-black px-1.5 py-0.5 rounded', log.status === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500']">{{ log.status }}</span>
+                  <span class="text-[9px] font-mono text-slate-600">{{ new Date(log.timestamp || log.id).toLocaleTimeString() }}</span>
+               </div>
+               <div class="text-[10px] font-mono text-slate-400 truncate opacity-60 group-hover:opacity-100 transition-opacity">
+                  {{ log.requestSnapshot?.url || 'URL Hidden' }}
                </div>
             </div>
           </div>

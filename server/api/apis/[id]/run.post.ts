@@ -29,16 +29,42 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // 智能转换：根据 API 定义将字符串转换回正确的类型 (Array/Object)
+  const coerceValue = (val: any, fieldName: string, metaList: any[]) => {
+    if (typeof val !== 'string') return val
+    const meta = metaList?.find(m => m.name === fieldName)
+    if (!meta) return val
+    
+    if (meta.type === 'Array' || meta.type === 'Object') {
+      try {
+        if (val.trim() === '' && meta.type === 'Array') return []
+        if (val.trim() === '' && meta.type === 'Object') return {}
+        return JSON.parse(val)
+      } catch (e) {
+        return meta.type === 'Array' ? [] : {}
+      }
+    }
+    return val
+  }
+
   const query = {}
   const headers = { 
     'Content-Type': 'application/json',
-    ...globalHeaders // 注入从前端传来的全局配置
+    ...globalHeaders
   }
   const requestBody = {}
 
-  Object.entries(customParams.query || {}).forEach(([k, v]) => setToPath(query, k, v))
-  Object.entries(customParams.headers || {}).forEach(([k, v]) => setToPath(headers, k, v))
-  Object.entries(customParams.body || {}).forEach(([k, v]) => setToPath(requestBody, k, v))
+  Object.entries(customParams.query || {}).forEach(([k, v]) => {
+    const val = coerceValue(v, k, api.reqQuery as any[])
+    setToPath(query, k, val)
+  })
+  Object.entries(customParams.headers || {}).forEach(([k, v]) => {
+    setToPath(headers, k, v) // Header 通常保持 String
+  })
+  Object.entries(customParams.body || {}).forEach(([k, v]) => {
+    const val = coerceValue(v, k, api.reqBody as any[])
+    setToPath(requestBody, k, val)
+  })
 
   let finalPath = api.path
   const pathVars = finalPath.match(/\{[^\}]+\}/g) || []
